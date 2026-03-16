@@ -1,0 +1,108 @@
+---
+title: "Category 1: Aggregation and string functions"
+description: "SQL queries using GROUP BY, ORDER BY, string functions, and operators"
+---
+
+These 10 queries operate on single tables and cover filtering with `WHERE`, aggregate functions (`COUNT`, `AVG`, `MAX`), grouping with `GROUP BY`, sorting with `ORDER BY`, and string manipulation with `CONCAT`, `UPPER`, `LOWER`, `LEFT`, `SUBSTRING`, `LENGTH`, and `RLIKE`.
+
+## Query 1
+
+Show `persona_id`, name, and full name (`nom` + `cog1` concatenated) aliased as `nom_complet` for persons born in 1990.
+
+```sql
+SELECT persona_id, CONCAT(nom, cog1) AS nom_complet
+	FROM persones
+WHERE YEAR(data_naixement) = 1990;
+```
+
+## Query 2
+
+How many female persons (`sexe = 'F'`) with no second surname (`cog2 IS NULL`) are registered?
+
+```sql
+SELECT COUNT(*)
+	FROM persones
+WHERE sexe = 'F' AND cog2 IS NULL;
+```
+
+## Query 3
+
+Show valid votes, blank votes, and null votes for municipalities with more than 2 polling tables (`num_meses > 2`), ordered by municipality ID.
+
+```sql
+SELECT municipi_id, vots_valids, vots_blanc, vots_nuls
+	FROM eleccions_municipis
+WHERE num_meses > 2
+ORDER BY municipi_id;
+```
+
+## Query 4
+
+Show `provincia_id`, `num_escons`, and the province name formatted with the first letter in lowercase and the rest in uppercase.
+
+```sql
+SELECT provincia_id, num_escons, CONCAT(LOWER(LEFT(nom,1)), UPPER(SUBSTRING(nom, 2, LENGTH(nom)))) AS nom
+	FROM provincies;
+```
+
+## Query 5
+
+Show candidates obtained and their vote counts in the province of Girona (`provincia_id = 26`).
+
+```sql
+SELECT candidats_obtinguts, vots
+	FROM vots_candidatures_prov
+WHERE provincia_id = 26;
+```
+
+## Query 6
+
+Show men (`sexe = 'M'`) with a DNI ending in `'H'` who were born between 1990 and 1999.
+
+```sql
+SELECT persona_id, sexe, dni, data_naixement
+	FROM persones
+WHERE YEAR(data_naixement) BETWEEN 1990 AND 1999
+AND dni LIKE '%H';
+```
+
+## Query 7
+
+How many people have a name starting with `'R'` and were born in February?
+
+```sql
+SELECT COUNT(*) quants
+    FROM persones
+WHERE nom RLIKE '^R' AND MONTH(data_naixement) = 2;
+```
+
+## Query 8
+
+Calculate the average of `vots_emesos` (votes cast) per municipality.
+
+```sql
+SELECT municipi_id, AVG(vots_emesos)
+    FROM eleccions_municipis
+GROUP BY municipi_id;
+```
+
+## Query 9
+
+Show the province with the most parliamentary seats (`num_escons`), including its ID and INE code.
+
+```sql
+SELECT num_escons, provincia_id, codi_ine
+	FROM provincies
+ORDER BY num_escons DESC
+LIMIT 1;
+```
+
+## Query 10
+
+Show `nom` + `cog1` + `cog2` concatenated (where the total length is less than 20 characters) in one column, and `persona_id` + `"/"` + `sexe` in another.
+
+```sql
+SELECT CONCAT(nom, cog1, cog2) AS nom_complet, CONCAT(persona_id, "/", sexe) AS "id/sexe"
+	FROM persones
+WHERE LENGTH(CONCAT(nom, cog1, cog2)) < 20;
+```

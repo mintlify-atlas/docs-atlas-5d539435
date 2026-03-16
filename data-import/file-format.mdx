@@ -1,0 +1,121 @@
+---
+title: 'DAT file format'
+description: How official Spanish election .DAT files are structured and parsed
+---
+
+Official Spanish election data is distributed as fixed-width text `.DAT` files. Each line in a file represents one record. Fields are not delimited by commas or tabs; instead, every field occupies a fixed range of character positions within the line.
+
+## Reading fixed-width fields
+
+The importer uses a single private helper to extract any field from a line:
+
+```java Importacions.java
+private static String llegirSegonsLlargada(int longiInci, int llargadaALlegir, String st) {
+    String stringTornar = "";
+    longiInci--;
+    for (int i = 0; i < llargadaALlegir; ++i, ++longiInci) {
+        stringTornar += String.valueOf(st.charAt(longiInci));
+    }
+    return stringTornar;
+}
+```
+
+- `longiInci` — 1-indexed start position of the field.
+- `llargadaALlegir` — number of characters to read.
+- `st` — the full line string.
+
+The method decrements `longiInci` by one to convert from the 1-based positions documented in the official layout to the 0-based indices used by Java's `charAt`. String fields are typically `.trim()`-ed after extraction; numeric fields are parsed with `Integer.parseInt()`.
+
+## File layouts
+
+### 07021606.DAT — Autonomous communities and provinces
+
+Used by both `importarComunitatsAutonomes()` and `importarProvincies()`. Rows where the province INE code is `99` represent the autonomous community itself; all other rows represent provinces within that community.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `codiINEComunitat` | 10 | 2 | `int` | Autonomous community INE code |
+| `codiINE` | 12 | 2 | `int` | Province INE code (99 = community-level row) |
+| `nom` | 15 | 50 | `String` | Name (trimmed) |
+| `numEscons` | 150 | 6 | `int` | Number of seats (provinces only) |
+
+### 05021606.DAT — Municipalities
+
+Used by `importarMunicipis()`. Rows where `districte` is `99` are non-district municipalities.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `any` | 3 | 4 | `int` | Election year |
+| `mes` | 7 | 2 | `int` | Election month |
+| `codiINEprovincia` | 12 | 2 | `int` | Province INE code |
+| `codiINEmunicipi` | 14 | 3 | `int` | Municipality INE code |
+| `districte` | 17 | 2 | `int` | District (99 = non-district municipality) |
+| `nomMunicipi` | 19 | 100 | `String` | Municipality name |
+
+### 02021606.DAT — Elections
+
+Used by `importarEleccions()`. Contains the date of the election.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `dia` | 13 | 2 | `String` | Day |
+| `mes` | 15 | 2 | `String` | Month |
+| `any` | 17 | 4 | `String` | Year |
+
+### 03021606.DAT — Candidatures (parties)
+
+Used by `importarCandidatures()`. Each row is one party participating in an election.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `any` | 3 | 4 | `int` | Election year |
+| `mes` | 7 | 2 | `int` | Election month |
+| `codi_candidatura` | 9 | 6 | `String` | Party code |
+| `nom_curt` | 15 | 50 | `String` | Short name / acronym |
+| `nom_llarg` | 65 | 150 | `String` | Full party name |
+| `codi_acumulacio_provincia` | 215 | 6 | `int` | Provincial accumulation code |
+| `codi_acumulacio_ca` | 221 | 6 | `int` | Autonomous community accumulation code |
+| `codi_acumulacio_nacional` | 227 | 6 | `int` | National accumulation code |
+
+### 04021606.DAT — Persons and candidates
+
+Used by both `importarPersones()` and `importarCandidats()`. Each row describes one person on a candidate list. The `tipus` field distinguishes titular candidates (`T`) from substitutes (`S`).
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `codiINEprovincia` | 10 | 2 | `int` | Province INE code |
+| `candidatura_codi` | 16 | 6 | `String` | Party code |
+| `num_ordre` | 22 | 3 | `int` | Order on the candidate list |
+| `tipus` | 25 | 1 | `String` | T = Titular, S = Suplent |
+| `nom` | 26 | 25 | `String` | First name |
+| `cog1` | 51 | 25 | `String` | First surname |
+| `cog2` | 76 | 25 | `String` | Second surname |
+| `dia` | 102 | 2 | `int` | Day of birth |
+| `mes` | 104 | 2 | `int` | Month of birth |
+| `any` | 106 | 4 | `int` | Year of birth |
+
+### 08021606.DAT — Votes by province and autonomous community
+
+Used by `importarVotsProvincies()` and `importarVotsCandidatures_ca()`. Rows where `provincia_INE` is `99` aggregate votes at the autonomous community level.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `comunitat_autonoma_ine` | 10 | 2 | `int` | Autonomous community INE code |
+| `provincia_INE` | 12 | 2 | `int` | Province INE code (99 = CA-level) |
+| `codi_candidatura` | 15 | 6 | `String` | Party code |
+| `vots` | 21 | 8 | `int` | Votes |
+| `candidats_obtinguts` | 29 | 5 | `int` | Seats won |
+
+### 06021606.DAT — Votes by municipality
+
+Used by `importarVotsMunicipis()`. Rows where `districte` is `99` are non-district municipalities.
+
+| Field | Start | Length | Type | Description |
+|-------|------:|-------:|------|-------------|
+| `any` | 3 | 4 | `int` | Election year |
+| `mes` | 7 | 2 | `int` | Election month |
+| `provincia_INE` | 10 | 2 | `int` | Province INE code |
+| `municipi_INE` | 12 | 3 | `int` | Municipality INE code |
+| `districte` | 15 | 2 | `int` | District (99 = non-district) |
+| `codi_candidatura` | 17 | 6 | `String` | Party code |
+| `vots` | 23 | 8 | `int` | Votes |

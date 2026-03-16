@@ -1,0 +1,78 @@
+---
+title: "Introduction"
+description: "Overview of the Eleccions Generals project: a MySQL database and Java importer for Spanish 2016 general election official data."
+---
+
+## What is Eleccions Generals?
+
+**Eleccions Generals** is a MySQL database project that models and imports official Spanish general election data for the June 2016 elections. It consists of two main components:
+
+- **Database schema** — a relational MySQL schema with 11 tables covering the full geographic and electoral hierarchy of Spain.
+- **Java importer** — a Java application that reads official `.DAT` files released by the Spanish government and loads them into the database using JDBC.
+
+## Source data
+
+The data comes from official Spanish electoral `.DAT` files distributed by the government. These fixed-width text files contain geographic data (autonomous communities, provinces, municipalities), electoral metadata (elections, candidatures), candidate data, and vote counts at multiple aggregation levels.
+
+The importer reads these files directly — either placed individually in `projecteBD/fitxers/` or packaged in a ZIP file inside `projecteBD/zips/`, which the importer extracts automatically.
+
+## Geographic model
+
+The schema follows Spain's official electoral geography, organized as a three-level hierarchy:
+
+```
+Comunitats Autònomes (autonomous communities)
+  └── Províncies (provinces)
+        └── Municipis (municipalities)
+```
+
+Each province stores its number of parliamentary seats (`num_escons`). Each municipality belongs to exactly one province.
+
+## Electoral model
+
+The electoral hierarchy links elections to results at every geographic level:
+
+```
+Eleccions (elections)
+  └── Candidatures (parties / coalitions)
+        └── Candidats (individual candidates)
+
+Eleccions + Municipis → Eleccions_Municipis (per-municipality totals)
+Candidatures + Municipis → Vots_Candidatures_Mun
+Candidatures + Provincies → Vots_Candidatures_Prov
+Candidatures + Comunitats Autònomes → Vots_Candidatures_CA
+```
+
+Vote counts are stored at three granularities: municipality, province, and autonomous community.
+
+## Language note
+
+This project is written in Catalan. Variable names, SQL column names, method names, and code comments throughout the source code use Catalan terminology. For example:
+
+| Catalan term | Meaning |
+|---|---|
+| `comunitats_autonomes` | autonomous communities |
+| `provincies` | provinces |
+| `municipis` | municipalities |
+| `candidatures` | candidacies (parties or coalitions) |
+| `candidats` | candidates |
+| `vots` | votes |
+| `escons` | parliamentary seats |
+| `fitxers` | files |
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Set up the database and run your first import in minutes.
+  </Card>
+  <Card title="Database schema" icon="database" href="/database/schema">
+    Explore the full relational schema with all 11 tables.
+  </Card>
+  <Card title="Data import" icon="file-import" href="/data-import/overview">
+    Understand how official .DAT files are parsed and loaded.
+  </Card>
+  <Card title="SQL queries" icon="code" href="/queries/overview">
+    Browse query examples from basic filters to window functions.
+  </Card>
+</Columns>

@@ -1,0 +1,110 @@
+---
+title: "Database schema"
+description: "Overview of the full relational database schema for the Eleccions Generals project."
+---
+
+The Eleccions Generals database is a MySQL relational schema with 11 tables organized into three logical groups: geographic hierarchy, electoral hierarchy, and vote aggregation. Together they model Spain's 2016 general election data from the national level down to individual municipalities.
+
+## Schema definition
+
+Create the schema with:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS `eleccions_generals`
+  DEFAULT CHARACTER SET utf8mb4;
+```
+
+## Table overview
+
+| Table | Group | Description |
+|---|---|---|
+| `comunitats_autonomes` | Geography | Spain's 17 autonomous communities |
+| `provincies` | Geography | 52 provinces, each belonging to a community |
+| `municipis` | Geography | Municipalities, each belonging to a province |
+| `eleccions` | Electoral | Election events with date and computed year/month |
+| `candidatures` | Electoral | Political parties or coalitions per election |
+| `persones` | Electoral | Individual candidate personal records |
+| `candidats` | Electoral | Candidates linked to a candidacy and province |
+| `eleccions_municipis` | Vote totals | Aggregate vote counts per municipality per election |
+| `vots_candidatures_mun` | Vote aggregation | Per-candidacy votes at municipality level |
+| `vots_candidatures_prov` | Vote aggregation | Per-candidacy votes and seats at province level |
+| `vots_candidatures_ca` | Vote aggregation | Per-candidacy votes at autonomous community level |
+
+## Geographic hierarchy
+
+The three geographic tables form a strict containment hierarchy:
+
+```
+comunitats_autonomes
+  └── provincies  (FK: comunitat_aut_id)
+        └── municipis  (FK: provincia_id)
+```
+
+- **`comunitats_autonomes`** is the root. Each row represents one of Spain's autonomous communities, identified by a two-character INE code.
+- **`provincies`** belongs to a community via `comunitat_aut_id`. Each province stores its INE code and the number of parliamentary seats (`num_escons`) allocated to it.
+- **`municipis`** belongs to a province via `provincia_id`. Large cities such as Barcelona are split into districts; the `districte` column holds the district number, or `99` for non-district municipalities. The uniqueness constraint is on `(codi_ine, provincia_id)` because INE municipality codes are unique only within a province.
+
+## Electoral hierarchy
+
+```
+eleccions
+  └── candidatures  (FK: eleccio_id)
+        └── candidats  (FK: candidatura_id)
+              └── persones  (FK: persona_id)
+```
+
+- **`eleccions`** stores each election event. The `data` column (DATE) is the canonical identifier; `any` and `mes` are generated columns derived from it. Uniqueness is enforced on both `(any, mes)` and `data`.
+- **`candidatures`** represents a political party or coalition within a specific election. A candidacy has a short name (`nom_curt`) and a full name (`nom_llarg`). The combination `(eleccio_id, codi_candidatura)` is unique.
+- **`persones`** holds personal data for individuals who appear as candidates. The `dni` column is unique, ensuring each person is stored once regardless of how many elections they participate in.
+- **`candidats`** links a person (`persona_id`) to a candidacy (`candidatura_id`) and a province (`provincia_id`). A candidate has an order number on the party list (`num_ordre`) and a type: `T` (Titular/main) or `S` (Suplent/substitute). The pair `(candidatura_id, persona_id)` is unique.
+
+## Vote aggregation tables
+
+Vote counts are pre-aggregated at three geographic levels. Each table references a `candidatura_id` and the relevant geographic entity.
+
+```
+candidatures
+  ├── vots_candidatures_mun  (via eleccio_id + municipi_id → eleccions_municipis)
+  ├── vots_candidatures_prov (via provincia_id)
+  └── vots_candidatures_ca   (via comunitat_autonoma_id)
+```
+
+- **`eleccions_municipis`** first aggregates totals for a municipality in a given election (census, votes cast, valid votes, blank votes, null votes). It acts as a parent for `vots_candidatures_mun`.
+- **`vots_candidatures_mun`** breaks down the municipality vote total by candidacy. Its composite foreign key `(eleccio_id, municipi_id)` references `eleccions_municipis`.
+- **`vots_candidatures_prov`** rolls up votes by province and candidacy, and additionally records `candidats_obtinguts` (seats won).
+- **`vots_candidatures_ca`** rolls up votes by autonomous community and candidacy.
+
+## Entity relationship summary
+
+| Relationship | Type | FK column(s) |
+|---|---|---|
+| `provincies` → `comunitats_autonomes` | Many-to-one | `comunitat_aut_id` |
+| `municipis` → `provincies` | Many-to-one | `provincia_id` |
+| `candidatures` → `eleccions` | Many-to-one | `eleccio_id` |
+| `candidats` → `candidatures` | Many-to-one | `candidatura_id` |
+| `candidats` → `persones` | Many-to-one | `persona_id` |
+| `candidats` → `provincies` | Many-to-one | `provincia_id` |
+| `eleccions_municipis` → `eleccions` | Many-to-one | `eleccio_id` |
+| `eleccions_municipis` → `municipis` | Many-to-one | `municipi_id` |
+| `vots_candidatures_mun` → `eleccions_municipis` | Many-to-one | `(eleccio_id, municipi_id)` |
+| `vots_candidatures_mun` → `candidatures` | Many-to-one | `candidatura_id` |
+| `vots_candidatures_prov` → `provincies` | Many-to-one | `provincia_id` |
+| `vots_candidatures_prov` → `candidatures` | Many-to-one | `candidatura_id` |
+| `vots_candidatures_ca` → `comunitats_autonomes` | Many-to-one | `comunitat_autonoma_id` |
+| `vots_candidatures_ca` → `candidatures` | Many-to-one | `candidatura_id` |
+
+## Referential integrity
+
+All cross-table references are enforced with `FOREIGN KEY` constraints. MySQL will reject:
+
+- Inserting a `provincies` row whose `comunitat_aut_id` does not exist in `comunitats_autonomes`.
+- Inserting a `municipis` row whose `provincia_id` does not exist in `provincies`.
+- Inserting a `candidatures` row for a non-existent `eleccio_id`.
+- Inserting a `candidats` row for a non-existent `candidatura_id`, `persona_id`, or `provincia_id`.
+- Inserting a vote row that references a non-existent candidacy or geographic entity.
+
+This means data must be loaded in dependency order: geographic tables first, then `eleccions`, then `candidatures` and `persones`, then `candidats`, and finally the vote tables.
+
+<Note>
+  The Java importer handles load order automatically. See [Data import overview](/data-import/overview) for details.
+</Note>

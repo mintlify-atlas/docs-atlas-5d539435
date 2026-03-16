@@ -1,0 +1,140 @@
+---
+title: "ZIP extraction"
+description: "How the TractarFitxers utility extracts .DAT files from election data archives"
+---
+
+The `TractarFitxers` class is responsible for unpacking `.DAT` files from a `.zip` archive into the `./fitxers/` directory, where the importer expects to find them. It must be called before any `Importacions` methods, as shown in `Main.java`.
+
+<Note>
+  If the `.DAT` files are already present in `./fitxers/`, you can skip this step entirely.
+</Note>
+
+## Public method
+
+`TractarFitxers` exposes a single static method:
+
+```java
+public static void descomprimirDATsZip()
+```
+
+It reads from the hardcoded archive path `./zips/02201606_MESA.zip` and writes each `.DAT` entry it finds into `./fitxers/`.
+
+## How it works
+
+<Steps>
+  <Step title="Open the zip archive">
+    A `FileInputStream` wraps the archive at `./zips/02201606_MESA.zip`, buffered with `BufferedInputStream`, and passed into a `ZipInputStream` to iterate over entries.
+
+    A `ZipFile` handle is also opened on the same path to retrieve individual entry input streams.
+
+    ```java
+    String fileName = "./zips/02201606_MESA.zip";
+
+    FileInputStream fis = new FileInputStream(fileName);
+    BufferedInputStream bis = new BufferedInputStream(fis);
+    ZipInputStream zis = new ZipInputStream(bis);
+    ZipFile zf = new ZipFile(fileName);
+    ```
+  </Step>
+
+  <Step title="Iterate over zip entries">
+    The method loops through every entry in the archive using `getNextEntry()`:
+
+    ```java
+    ZipEntry ze;
+    while ((ze = zis.getNextEntry()) != null) { ... }
+    ```
+  </Step>
+
+  <Step title="Skip non-.DAT files">
+    Any entry whose name does not end with `.DAT` is silently skipped:
+
+    ```java
+    if (!ze.getName().substring(ze.getName().length() - 4).equals(".DAT")) continue;
+    ```
+
+    <Note>
+      Non-`.DAT` files (such as metadata or index files) are skipped without error or warning.
+    </Note>
+  </Step>
+
+  <Step title="Open an InputStream for the entry">
+    The entry is re-fetched from the `ZipFile` handle to get a usable `InputStream`:
+
+    ```java
+    ZipEntry e = zf.getEntry(ze.getName());
+    InputStream is = zf.getInputStream(e);
+    ```
+  </Step>
+
+  <Step title="Copy the file to ./fitxers/">
+    The entry contents are written to `./fitxers/<filename>` using `Files.copy()`:
+
+    ```java
+    Files.copy(is, Paths.get("./fitxers/" + ze.getName()));
+    ```
+  </Step>
+
+  <Step title="Print confirmation">
+    A confirmation message is printed to standard output for each extracted file:
+
+    ```java
+    System.out.println("El fitxer: " + ze.getName() + " s'ha afegit a la carpeta \"./fitxers/\"");
+    ```
+  </Step>
+</Steps>
+
+## Full source
+
+```java TractarFitxers.java
+package basedades;
+
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
+
+public class TractarFitxers {
+
+    public static void descomprimirDATsZip() {
+        String fileName = "./zips/02201606_MESA.zip";
+
+        try (FileInputStream fis = new FileInputStream(fileName);
+             BufferedInputStream bis = new BufferedInputStream(fis);
+             ZipInputStream zis = new ZipInputStream(bis)) {
+                ZipFile zf = new ZipFile(fileName);
+
+            ZipEntry ze;
+
+            while ((ze = zis.getNextEntry()) != null) {
+
+                if (!ze.getName().substring(ze.getName().length() - 4).equals(".DAT")) continue;
+
+                ZipEntry e = zf.getEntry(ze.getName());
+
+                InputStream is = zf.getInputStream(e);
+
+                Files.copy(is, Paths.get("./fitxers/" + ze.getName()));
+
+                System.out.println("El fitxer: " + ze.getName() + " s'ha afegit a la carpeta \"./fitxers/\"");
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+## Usage in Main.java
+
+`TractarFitxers.descomprimirDATsZip()` must be called before any `Importacions` methods so that the `.DAT` files are in place when the importer runs:
+
+```java
+TractarFitxers.descomprimirDATsZip();
+// then call Importacions methods...
+```

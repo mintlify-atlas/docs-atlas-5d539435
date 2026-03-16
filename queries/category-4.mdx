@@ -1,0 +1,64 @@
+---
+title: "Category 4: Window functions"
+description: "SQL queries using OVER, PARTITION BY, and other advanced MySQL features"
+---
+
+This category demonstrates MySQL window functions combined with `JOIN`, subqueries, and `GROUP BY`. Window functions compute aggregates over a defined partition of rows without collapsing them — unlike `GROUP BY`, each input row keeps its own output row.
+
+## Query 1
+
+Find the winner of each election per province. Show the province name, the party short name, vote count, the maximum votes for that province (the winning total), and a flag (`1` if winner, `0` otherwise). Ordered by province name and election ID.
+
+```sql
+SELECT p.nom AS Provincia, c.nom_curt AS Candidatura, vcp.vots, MAX(vcp.vots)
+OVER (PARTITION BY vcp.provincia_id) AS vots_guanyador,
+IF(vots IN (SELECT MAX(vots) provincies
+				FROM vots_candidatures_prov vcp
+            INNER JOIN candidatures c ON c.candidatura_id = vcp.candidatura_id
+			GROUP BY vcp.provincia_id, c.eleccio_id), 1, 0) AS Guanyadors
+	FROM vots_candidatures_prov vcp
+INNER JOIN candidatures c ON c.candidatura_id = vcp.candidatura_id
+INNER JOIN provincies p ON vcp.provincia_id = p.provincia_id
+GROUP BY vcp.provincia_id, c.eleccio_id, vcp.candidatura_id
+ORDER BY p.nom, c.eleccio_id;
+```
+
+## How this query works
+
+### Window function: `MAX(...) OVER (PARTITION BY ...)`
+
+```sql
+MAX(vcp.vots) OVER (PARTITION BY vcp.provincia_id) AS vots_guanyador
+```
+
+This expression computes the maximum `vots` value across all rows that share the same `provincia_id`, and attaches that value to **every row in the partition** — not just the row that holds the maximum. The result set is not collapsed: you still get one output row per `(provincia_id, eleccio_id, candidatura_id)` group, each annotated with the province-level winning vote total.
+
+This is the key difference from a plain `MAX()` with `GROUP BY`: `GROUP BY` reduces the result to one row per group, while `OVER (PARTITION BY ...)` keeps all rows intact and adds the aggregate as an extra column.
+
+### Winner flag: `IF(vots IN (SELECT MAX(...) GROUP BY ...), 1, 0)`
+
+```sql
+IF(vots IN (
+    SELECT MAX(vots)
+    FROM vots_candidatures_prov vcp
+    INNER JOIN candidatures c ON c.candidatura_id = vcp.candidatura_id
+    GROUP BY vcp.provincia_id, c.eleccio_id
+), 1, 0) AS Guanyadors
+```
+
+The subquery returns the set of maximum vote counts — one per `(provincia_id, eleccio_id)` combination. The outer `IF` then checks whether the current row's `vots` value appears in that set. If it does, the row is the winner for its province and election, so the flag is `1`; otherwise it is `0`.
+
+### Combined techniques
+
+This query brings together four MySQL features in a single statement:
+
+| Technique | Role in this query |
+|---|---|
+| `INNER JOIN` | Links `vots_candidatures_prov`, `candidatures`, and `provincies` |
+| `GROUP BY` | Collapses rows to one per province, election, and candidature |
+| `OVER (PARTITION BY ...)` | Computes the per-province vote maximum without further collapsing |
+| Subquery in `IN` | Identifies the winning vote total per province and election |
+
+<Note>
+Because `GROUP BY` runs before window functions in MySQL's logical query processing order, `MAX(vcp.vots) OVER (PARTITION BY vcp.provincia_id)` operates on the already-grouped result set, not on the raw table rows.
+</Note>

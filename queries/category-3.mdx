@@ -1,0 +1,78 @@
+---
+title: "Category 3: Subqueries"
+description: "SQL queries using subqueries in WHERE, IN clauses, and correlated subqueries"
+---
+
+These 5 queries use subqueries to filter rows, match sets of values, and compute per-row aggregates. The techniques covered include scalar subqueries in `WHERE`, `IN` with a subquery returning multiple rows, and a correlated subquery that references the outer query.
+
+## Query 1
+
+Find the names and surnames of candidates in the province of Córdoba, using a subquery to resolve the province name to its ID.
+
+```sql
+SELECT p.persona_id, p.nom, p.cog1, p.cog2
+	FROM persones p
+    INNER JOIN candidats c ON c.persona_id = p.persona_id
+WHERE c.provincia_id = ( SELECT provincia_id
+						FROM provincies
+                        WHERE nom = 'Córdoba');
+```
+
+## Query 2
+
+Show `nom_curt` and `nom_llarg` of candidatures that have at least one candidate with `num_ordre = 1`.
+
+```sql
+SELECT nom_curt, nom_llarg
+	FROM candidatures
+WHERE candidatura_id IN (SELECT candidatura_id
+						FROM candidats
+						WHERE num_ordre = 1);
+```
+
+## Query 3
+
+Count how many municipalities participated in the 2016 elections.
+
+```sql
+SELECT COUNT(municipi_id)
+	FROM eleccions_municipis
+    WHERE eleccio_id IN (SELECT eleccio_id
+						FROM eleccions
+                        WHERE any = 2016);
+```
+
+## Query 4
+
+Show elections (`eleccio_id`, `vots_blanc`) with more blank votes than the 2017 elections.
+
+```sql
+SELECT eleccio_id, vots_blanc
+	FROM eleccions_municipis
+WHERE vots_blanc > (SELECT em.vots_blanc
+						FROM eleccions_municipis em
+					INNER JOIN eleccions e ON e.eleccio_id = em.eleccio_id
+					WHERE e.any = 2017);
+```
+
+## Query 5
+
+Show the percentage of valid votes per municipality in the province of Almería. The total valid votes for Almería is computed with a correlated subquery.
+
+```sql
+SELECT CONCAT(
+ROUND(
+em.vots_valids * 100 / (
+	SELECT SUM(em2.vots_valids)
+		FROM eleccions_municipis em2
+        INNER JOIN municipis m2 ON m2.municipi_id = em2.municipi_id
+        INNER JOIN provincies p2 ON m2.provincia_id = p2.provincia_id
+        WHERE p2.nom = 'Almería'
+        )
+	, 2), '%') AS porcentaje, m.nom
+	FROM eleccions_municipis em
+	INNER JOIN municipis m ON m.municipi_id = em.municipi_id
+	INNER JOIN provincies p ON m.provincia_id = p.provincia_id
+        WHERE p.nom = 'Almería'
+        GROUP BY m.nom, em.vots_valids;
+```

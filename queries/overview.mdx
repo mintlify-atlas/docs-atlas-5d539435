@@ -1,0 +1,23 @@
+---
+title: "SQL queries overview"
+description: "Overview of the SQL query examples organized by technique category"
+---
+
+The project includes 40 SQL query examples across 4 categories, demonstrating progressively advanced MySQL techniques — from basic filtering and string manipulation through multi-table joins, subqueries, and finally window functions.
+
+Each category builds on the previous one. Category 1 covers single-table queries; Category 4 combines window functions, subqueries, joins, and aggregation in a single statement.
+
+<CardGroup cols={2}>
+  <Card title="Category 1: Aggregation and string functions" icon="function" href="/queries/category-1">
+    Single-table queries using `GROUP BY`, `ORDER BY`, string functions (`CONCAT`, `UPPER`, `LOWER`, `LENGTH`), filtering operators, and aggregate functions (`COUNT`, `AVG`, `MAX`).
+  </Card>
+  <Card title="Category 2: JOINs" icon="code-merge" href="/queries/category-2">
+    Multi-table queries using `INNER JOIN` and `LEFT JOIN` to combine candidates, persons, provinces, municipalities, candidatures, and elections.
+  </Card>
+  <Card title="Category 3: Subqueries" icon="brackets-curly" href="/queries/category-3">
+    Queries using subqueries in `WHERE` clauses, `IN` expressions, and correlated subqueries to filter and compute values across related tables.
+  </Card>
+  <Card title="Category 4: Window functions" icon="chart-line" href="/queries/category-4">
+    Advanced queries combining `OVER`, `PARTITION BY`, subqueries, `JOIN`, and `GROUP BY` to compute per-partition aggregates without collapsing rows.
+  </Card>
+</CardGroup>

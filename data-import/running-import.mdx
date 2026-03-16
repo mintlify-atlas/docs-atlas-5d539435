@@ -1,0 +1,156 @@
+---
+title: 'Running the import'
+description: Step-by-step guide to execute the data import process
+---
+
+This page walks through what happens when you run the importer and how each part of the process works.
+
+## Prerequisites
+
+- MySQL is running and reachable at `192.168.56.101:3306`.
+- The database `mydb` exists and the schema has been applied.
+- The source zip file containing the `.DAT` files is present in the expected location for `TractarFitxers`.
+- The MySQL JDBC driver (`com.mysql.cj.jdbc.Driver`) is on the classpath.
+
+## Execution steps
+
+<Steps>
+  <Step title="Extract the DAT files">
+    `TractarFitxers.descomprimirDATsZip()` unpacks the zip archive and writes each `.DAT` file into the `./fitxers/` directory. All subsequent import methods read from that directory.
+  </Step>
+
+  <Step title="Establish the database connection">
+    `Main.java` loads the MySQL JDBC driver and opens a single shared connection that every `Importacions` method reuses:
+
+    ```java Main.java
+    Class.forName("com.mysql.cj.jdbc.Driver");
+    con = DriverManager.getConnection(
+        "jdbc:mysql://192.168.56.101:3306/mydb",
+        "perepi",
+        "pastanaga"
+    );
+    ```
+
+    The connection is stored in the `public static` field `Main.con` so every static method in `Importacions` can access it without being passed a parameter.
+  </Step>
+
+  <Step title="Import autonomous communities and provinces">
+    `importarComunitatsAutonomes()` and `importarProvincies()` both read `./fitxers/07021606.DAT`. The former inserts every row where `codiINE == 99` (community-level rows); the latter inserts all other rows as provinces referencing their community.
+
+    On success the console prints:
+
+    ```
+    La taula de Provincies s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import municipalities">
+    `importarMunicipis()` reads `./fitxers/05021606.DAT`. For each row it calls `obtenirProvincia_id(codiINEprovincia)` to resolve the province's surrogate key before inserting.
+
+    On success:
+
+    ```
+    La taula de Municipis s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import elections">
+    `importarEleccions()` reads `./fitxers/02021606.DAT` and inserts the election date.
+
+    On success:
+
+    ```
+    La taula d'Eleccions s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import election–municipality links">
+    `importarEleccionsMunicipi()` links each election to the municipalities that participated. It calls both `obtenirEleccioId()` and `obtenirMunicipiid()` to resolve foreign keys.
+  </Step>
+
+  <Step title="Import persons">
+    `importarPersones()` reads `./fitxers/04021606.DAT` and inserts each unique person (name, surnames, date of birth) into the `persones` table.
+
+    On success:
+
+    ```
+    La taula de Persones s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import candidatures (parties)">
+    `importarCandidatures()` reads `./fitxers/03021606.DAT`. It resolves the autonomous community foreign key with `obtenirIdComunAmbINE()` before inserting each party record.
+
+    On success:
+
+    ```
+    La taula de Candidatures s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import candidates">
+    `importarCandidats()` reads `./fitxers/04021606.DAT` again. For each row it calls `obtenirPersona_id()` and `obtenirCandidatura_id()` to link the person and party, then inserts the candidate with their list position and type (titular or substitute).
+
+    On success:
+
+    ```
+    La taula de Candidats s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Import votes by province and autonomous community">
+    `importarVotsProvincies()` and `importarVotsCandidatures_ca()` both read `./fitxers/08021606.DAT`. The former inserts province-level vote rows; the latter inserts autonomous community-level aggregates (rows where `provincia_INE == 99`).
+
+    Both call `obtenirCandidatura_id()` to resolve the party foreign key.
+  </Step>
+
+  <Step title="Import votes by municipality">
+    `importarVotsMunicipis()` reads `./fitxers/06021606.DAT`. It calls `obtenirMunicipiid()` and `obtenirCandidatura_id()` before each insert.
+
+    On success:
+
+    ```
+    La taula de Vots per Municipi s'ha importat correctament.
+    ```
+  </Step>
+
+  <Step title="Close the connection">
+    After all methods return, `Main.java` calls `con.close()`. Any unhandled exception prints its message to stdout via the surrounding `catch` block.
+  </Step>
+</Steps>
+
+## How each import method works
+
+Every `Importacions` method follows the same internal pattern:
+
+1. Opens the relevant `.DAT` file with a `BufferedReader` (path hardcoded, e.g. `"./fitxers/07021606.DAT"`).
+2. Reads the file line by line.
+3. Extracts each field with `llegirSegonsLlargada()` — see [DAT file format](/data-import/file-format) for field positions.
+4. Resolves foreign keys by calling a helper SELECT method (see below).
+5. Executes a `PreparedStatement` INSERT into the target table.
+6. Prints a success message once the entire file is processed.
+
+## Foreign key lookup helpers
+
+Because the `.DAT` files identify related entities by business codes (INE codes, party codes, etc.) rather than surrogate keys, the importer provides a set of helper methods that run a `SELECT` to translate each code to its database `id`:
+
+| Method | Resolves |
+|--------|----------|
+| `obtenirProvincia_id(codiINE)` | Province surrogate key from its INE code |
+| `obtenirPersona_id(nom, cog1, cog2, dia, mes, any)` | Person surrogate key from name and date of birth |
+| `obtenirCandidatura_id(codi_candidatura, any, mes)` | Party surrogate key from party code and election date |
+| `obtenirEleccioId(any, mes)` | Election surrogate key from year and month |
+| `obtenirMunicipiid(codiINEprovincia, codiINEmunicipi)` | Municipality surrogate key from province and municipality INE codes |
+| `obtenirIdComunAmbINE(codiINEComunitat)` | Autonomous community surrogate key from its INE code |
+
+Each helper executes a parameterised `SELECT id FROM <table> WHERE ...` and returns the integer result.
+
+## Common issues
+
+<Warning>
+**Duplicate key errors on re-run** — The import methods use plain `INSERT` statements. Running the importer a second time against a database that already contains data will cause primary key or unique constraint violations. Truncate all tables (in reverse dependency order) before re-importing.
+</Warning>
+
+<Warning>
+**Connection refused** — If MySQL is not running or the host `192.168.56.101` is unreachable, `DriverManager.getConnection()` throws an exception. The `catch` block in `Main.java` prints the exception message and exits without importing any data.
+</Warning>

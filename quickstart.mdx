@@ -1,80 +1,154 @@
 ---
 title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+description: "Set up the database and run your first import."
 ---
 
-## Get started in three steps
+<Steps>
+  <Step title="Check prerequisites">
+    Before you begin, make sure you have the following available:
 
-Get your documentation site running locally and make your first customization.
+    - **MySQL Server** running and accessible
+    - **Java JDK** installed
+    - **MySQL Connector/J** (JDBC driver) with class `com.mysql.cj.jdbc.Driver` on your classpath
+    - The project repository cloned locally
 
-### Step 1: Set up your local environment
+    <Note>
+      The project source is under `projecteBD/src/basedades/`. The SQL schema is at `Model SQL BD/Taules_eleccions.sql`.
+    </Note>
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Create the database">
+    Run the SQL schema script against your MySQL server. This creates the `mydb` schema and all 11 tables.
 
-### Step 2: Deploy your changes
+    ```bash MySQL CLI
+    mysql -u <user> -p < "Model SQL BD/Taules_eleccions.sql"
+    ```
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    Or open the file in MySQL Workbench and execute it. The script drops and recreates the `mydb` schema, so run it on a fresh or dedicated instance.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    <Warning>
+      The script begins with `DROP SCHEMA IF EXISTS mydb`. Any existing `mydb` database will be deleted.
+    </Warning>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Configure the database connection">
+    Open `projecteBD/src/basedades/Main.java` and update the JDBC connection string on line 20:
 
-### Step 3: Go live
+    ```java Main.java
+    con = DriverManager.getConnection("jdbc:mysql://192.168.56.101:3306/mydb", "perepi", "pastanaga");
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    Replace each part with your own values:
 
-## Next steps
+    | Placeholder | Replace with |
+    |---|---|
+    | `192.168.56.101` | Your MySQL server's IP address or hostname |
+    | `3306` | Your MySQL port (default: `3306`) |
+    | `mydb` | The database name (default: `mydb`) |
+    | `perepi` | Your MySQL username |
+    | `pastanaga` | Your MySQL password |
 
-Now that you have your docs running, explore these key features:
+    For example, to connect to a local server:
 
-<CardGroup cols={2}>
+    ```java Main.java (local example)
+    con = DriverManager.getConnection("jdbc:mysql://localhost:3306/mydb", "root", "yourpassword");
+    ```
+  </Step>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Step title="Prepare the .DAT files">
+    The importer reads fixed-width `.DAT` files from `projecteBD/fitxers/`. You can supply them in two ways:
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+    <Tabs>
+      <Tab title="Place .DAT files directly">
+        Copy the `.DAT` files into `projecteBD/fitxers/`. The importer will read them from there.
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+        ```
+        projecteBD/
+          fitxers/
+            02021606.DAT
+            03021606.DAT
+            04021606.DAT
+            05021606.DAT
+            06021606.DAT
+            07021606.DAT
+            08021606.DAT
+            ...
+        ```
+      </Tab>
+      <Tab title="Use a ZIP archive">
+        Place a ZIP file containing the `.DAT` files into `projecteBD/zips/`. The importer calls `TractarFitxers.descomprimirDATsZip()` at startup, which extracts any `.DAT` entries into `projecteBD/fitxers/` automatically.
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+        The default ZIP filename expected by the importer is:
 
-</CardGroup>
+        ```java TractarFitxers.java
+        String fileName = "./zips/02201606_MESA.zip";
+        ```
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+        If your ZIP file has a different name, update this line in `projecteBD/src/basedades/TractarFitxers.java`.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Run Main.java">
+    Compile and run `Main.java`. The importer connects to MySQL and executes all 11 import functions in sequence:
+
+    ```java Main.java
+    TractarFitxers.descomprimirDATsZip();       // Extract .DAT files from ZIP
+
+    Importacions.importarComunitatsAutonomes(); // Autonomous communities
+    Importacions.importarProvincies();          // Provinces
+    Importacions.importarMunicipis();           // Municipalities
+    Importacions.importarEleccions();           // Election event
+    Importacions.importarEleccionsMunicipi();   // Per-municipality election data
+    Importacions.importarPersones();            // Candidate personal data
+    Importacions.importarCandidatures();        // Parties / coalitions
+    Importacions.importarCandidats();           // Candidates
+    Importacions.importarVotsProvincies();      // Votes by province
+    Importacions.importarVotsCandidatures_ca(); // Votes by autonomous community
+    Importacions.importarVotsMunicipis();       // Votes by municipality
+    ```
+
+    Each function prints a confirmation message to stdout when it completes. For example:
+
+    ```
+    La taula de Comunitats Autonomes s'ha importat correctament.
+    La taula de Provincies s'ha importat correctament.
+    La taula de Municipis s'ha importat correctament.
+    ...
+    ```
+
+    <Note>
+      The functions must run in this order. Later imports (such as `importarCandidats`) depend on IDs inserted by earlier ones (such as `importarCandidatures` and `importarPersones`).
+    </Note>
+  </Step>
+
+  <Step title="Verify the import">
+    Run these queries in MySQL to confirm the data was loaded correctly.
+
+    <CodeGroup>
+
+    ```sql Check geographic tables
+    SELECT COUNT(*) FROM comunitats_autonomes; -- Expect 17
+    SELECT COUNT(*) FROM provincies;           -- Expect 52
+    SELECT COUNT(*) FROM municipis;
+    ```
+
+    ```sql Check electoral tables
+    SELECT * FROM eleccions;
+    SELECT COUNT(*) FROM candidatures;
+    SELECT COUNT(*) FROM candidats;
+    ```
+
+    ```sql Check vote tables
+    SELECT COUNT(*) FROM vots_candidatures_mun;
+    SELECT COUNT(*) FROM vots_candidatures_prov;
+    SELECT COUNT(*) FROM vots_candidatures_ca;
+    ```
+
+    </CodeGroup>
+
+    <Check>
+      If all tables return non-zero row counts and the `eleccions` table shows the 2016-06-26 election date, the import completed successfully.
+    </Check>
+  </Step>
+</Steps>

@@ -1,0 +1,80 @@
+---
+title: 'Data import overview'
+description: How the Java importer loads official Spanish election data into MySQL
+---
+
+The Java application in `projecteBD/src/basedades/` imports official Spanish electoral data from fixed-width `.DAT` files published by the Spanish electoral administration. It reads those files, parses each field by character position, resolves foreign keys, and inserts rows into the MySQL database.
+
+## Two-phase process
+
+The import runs in two sequential phases:
+
+1. **Extraction** — `TractarFitxers.descomprimirDATsZip()` unpacks the source `.DAT` files from a zip archive into the `./fitxers/` directory.
+2. **Loading** — `Importacions` reads each extracted file and inserts its rows into the corresponding table, in dependency order so that every foreign key already exists before it is referenced.
+
+## Import sequence
+
+`Main.java` calls each import method in the following order:
+
+| Step | Method | Table populated |
+|------|--------|-----------------|
+| 1 | `TractarFitxers.descomprimirDATsZip()` | *(extracts files)* |
+| 2 | `Importacions.importarComunitatsAutonomes()` | `comunitats_autonomes` |
+| 3 | `Importacions.importarProvincies()` | `provincies` |
+| 4 | `Importacions.importarMunicipis()` | `municipis` |
+| 5 | `Importacions.importarEleccions()` | `eleccions` |
+| 6 | `Importacions.importarEleccionsMunicipi()` | `eleccions_municipi` |
+| 7 | `Importacions.importarPersones()` | `persones` |
+| 8 | `Importacions.importarCandidatures()` | `candidatures` |
+| 9 | `Importacions.importarCandidats()` | `candidats` |
+| 10 | `Importacions.importarVotsProvincies()` | `vots_provincies` |
+| 11 | `Importacions.importarVotsCandidatures_ca()` | `vots_candidatures_ca` |
+| 12 | `Importacions.importarVotsMunicipis()` | `vots_municipis` |
+
+## Why order matters
+
+Every table after step 2 holds foreign keys that reference a previously loaded table. For example:
+
+- `provincies` references `comunitats_autonomes` — so autonomous communities must exist first.
+- `municipis` references `provincies`.
+- `candidats` references both `persones` and `candidatures`.
+- All vote tables reference `eleccions`, `provincies`, `municipis`, and `candidatures`.
+
+Running the methods out of order causes foreign key constraint violations and the import fails.
+
+## Main.java source
+
+```java Main.java
+package basedades;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.util.Calendar;
+
+public class Main {
+    public static Connection con;
+
+    public static void main(String[] args) {
+        TractarFitxers.descomprimirDATsZip();
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            con = DriverManager.getConnection("jdbc:mysql://192.168.56.101:3306/mydb", "perepi", "pastanaga");
+            Calendar calendar = Calendar.getInstance();
+            java.sql.Date startDate = new java.sql.Date(calendar.getTime().getTime());
+            Importacions.importarComunitatsAutonomes();
+            Importacions.importarProvincies();
+            Importacions.importarMunicipis();
+            Importacions.importarEleccions();
+            Importacions.importarEleccionsMunicipi();
+            Importacions.importarPersones();
+            Importacions.importarCandidatures();
+            Importacions.importarCandidats();
+            Importacions.importarVotsProvincies();
+            Importacions.importarVotsCandidatures_ca();
+            Importacions.importarVotsMunicipis();
+            con.close();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+}
+```

@@ -1,97 +1,63 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Eleccions Generals"
+description: "A MySQL database platform for Spanish general election data, with a Java-based data importer and comprehensive SQL query examples."
 ---
 
-## Setting up
+## Overview
 
-Get your documentation site up and running in minutes.
+**Eleccions Generals** is a database project that models and imports official Spanish general election data (2016). It includes:
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+- A complete MySQL relational schema covering the full geographic and electoral hierarchy
+- A Java application that parses official `.DAT` election files and populates the database
+- A ZIP extraction utility to unpack archived `.DAT` files
+- Categorized SQL query examples demonstrating aggregation, JOINs, subqueries, and window functions
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Set up the database and run your first import in minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Database schema" icon="database" href="/database/schema">
+    Explore the full relational schema with all 11 tables.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Data import" icon="file-import" href="/data-import/overview">
+    Understand how official .DAT files are parsed and loaded.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="SQL queries" icon="code" href="/queries/overview">
+    Browse query examples from basic filters to window functions.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Key features
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Geographic hierarchy" icon="map">
+    Models Spain's electoral geography: autonomous communities, provinces, and municipalities.
+  </Card>
+  <Card title="Candidate & party data" icon="users">
+    Stores candidate personal data and links them to candidacies (parties) by province.
+  </Card>
+  <Card title="Multi-level vote aggregation" icon="chart-bar">
+    Captures vote counts at municipality, province, and autonomous community levels.
+  </Card>
+  <Card title="Progressive SQL examples" icon="magnifying-glass">
+    Four query categories from basic aggregation to advanced window functions.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## Data model at a glance
 
-## Need inspiration?
+The schema covers the 2016 Spanish general elections with the following core tables:
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+| Table | Description |
+|---|---|
+| `comunitats_autonomes` | Spain's 17 autonomous communities |
+| `provincies` | 52 provinces with seat (escó) counts |
+| `municipis` | Municipalities, linked to provinces |
+| `eleccions` | Election events with date |
+| `candidatures` | Political parties/coalitions per election |
+| `persones` | Individual candidate personal data |
+| `candidats` | Candidates linked to a candidacy and province |
+| `eleccions_municipis` | Per-municipality vote totals |
+| `vots_candidatures_mun` | Per-candidacy votes by municipality |
+| `vots_candidatures_prov` | Per-candidacy votes and seats by province |
+| `vots_candidatures_ca` | Per-candidacy votes by autonomous community |
