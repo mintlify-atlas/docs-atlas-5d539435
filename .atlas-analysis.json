@@ -1,0 +1,67 @@
+{
+  "projectType": "data-platform",
+  "projectName": "Eleccions Generals",
+  "projectDescription": "A Spanish general elections data platform with a MySQL database schema, Java-based data importer for official .DAT files, and categorized SQL query examples.",
+  "theme": "linden",
+  "primaryColor": "#C41E3A",
+  "lightColor": "#F5E6E8",
+  "darkColor": "#7A0B1E",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Database",
+            "pages": ["database/schema", "database/tables"]
+          },
+          {
+            "group": "Data Import",
+            "pages": ["data-import/overview", "data-import/file-format", "data-import/running-import"]
+          },
+          {
+            "group": "File Processing",
+            "pages": ["file-processing/zip-extraction"]
+          }
+        ]
+      },
+      {
+        "tab": "SQL Queries",
+        "groups": [
+          {
+            "group": "Query Reference",
+            "pages": ["queries/overview", "queries/category-1", "queries/category-2", "queries/category-3", "queries/category-4"]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "MySQL database schema for Spanish general election data (2016)",
+    "Java-based importer to parse official .DAT election files",
+    "ZIP extraction utility for .DAT file archives",
+    "Hierarchical geographic model: autonomous communities, provinces, municipalities",
+    "Candidate and candidacy (party) data management",
+    "Vote aggregation at municipality, province, and autonomous community levels",
+    "Categorized SQL query examples from basic aggregation to window functions"
+  ],
+  "publicApiSurface": [
+    "Importacions.importarComunitatsAutonomes()",
+    "Importacions.importarProvincies()",
+    "Importacions.importarMunicipis()",
+    "Importacions.importarEleccions()",
+    "Importacions.importarEleccionsMunicipi()",
+    "Importacions.importarPersones()",
+    "Importacions.importarCandidatures()",
+    "Importacions.importarCandidats()",
+    "Importacions.importarVotsProvincies()",
+    "Importacions.importarVotsCandidatures_ca()",
+    "Importacions.importarVotsMunicipis()",
+    "TractarFitxers.descomprimirDATsZip()",
+    "Tables: comunitats_autonomes, provincies, municipis, eleccions, eleccions_municipis, candidatures, persones, candidats, vots_candidatures_mun, vots_candidatures_prov, vots_candidatures_ca"
+  ]
+}
